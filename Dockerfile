@@ -80,15 +80,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssh-server 
     rm -rf /var/lib/apt/lists/* && \
     mkdir -p /run/sshd
 
-# Entrypoint: start SSH daemon then keep container alive for interactive use
-# SSH in, SCP upload PDB files, run predictions, SCP download results
-RUN echo '#!/bin/bash' > /entrypoint.sh && \
-    echo '/usr/sbin/sshd' >> /entrypoint.sh && \
-    echo 'echo "IDRBindNet ready. SSH in and run:"' >> /entrypoint.sh && \
-    echo 'echo "  python3 /app/GT-IDR-Bind/run_all.py --pdb_dir /work --gpu_id 0"' >> /entrypoint.sh && \
-    echo 'exec sleep infinity' >> /entrypoint.sh && \
-    chmod +x /entrypoint.sh
+# Copy entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 WORKDIR /work
 
-CMD ["/entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["/bin/bash"]
