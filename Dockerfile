@@ -15,16 +15,33 @@ LABEL maintainer="Shad Nygren, Virtual Hipster Corporation"
 LABEL description="IDRBindNet: IDP-protein binding affinity (Kd) prediction with GPU support"
 LABEL version="1.1"
 
-# Install system dependencies
+# Install system dependencies + SSH server
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     csh \
     tcsh \
     gfortran \
     wget \
-    && rm -rf /var/lib/apt/lists/*
+    openssh-server \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /run/sshd /root/.ssh \
+    && chmod 700 /root/.ssh
 
-# Install Python dependencies (no conda needed — base image has Python 3.10 + PyTorch)
+# Configure sshd: root login, pubkey auth, accept RSA keys
+# Base image is Ubuntu 20.04 with OpenSSH 8.2 (uses PubkeyAcceptedKeyTypes, not PubkeyAcceptedAlgorithms)
+RUN sed -i 's/^#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config && \
+    sed -i 's/^#PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config && \
+    sed -i 's/^#AuthorizedKeysFile.*/AuthorizedKeysFile .ssh\/authorized_keys/' /etc/ssh/sshd_config && \
+    echo "" >> /etc/ssh/sshd_config && \
+    echo "# Accept RSA key types (OpenSSH 8.2 on Ubuntu 20.04)" >> /etc/ssh/sshd_config && \
+    echo "PubkeyAcceptedKeyTypes +ssh-rsa" >> /etc/ssh/sshd_config
+
+# Ensure python3 is in standard PATH (base image puts it at /opt/conda/bin/)
+RUN ln -sf /opt/conda/bin/python3 /usr/local/bin/python3 && \
+    ln -sf /opt/conda/bin/python /usr/local/bin/python && \
+    ln -sf /opt/conda/bin/pip /usr/local/bin/pip
+
+# Install Python dependencies (base image has Python 3.10 + PyTorch 2.0.1)
 RUN pip install --no-cache-dir \
     torch-geometric==2.6.1 \
     fair-esm==2.0.0 \
@@ -74,11 +91,6 @@ COPY Prot_T5_BFD/ /app/Prot_T5_BFD/
 
 # Copy IDRBindNet code
 COPY GT-IDR-Bind/ /app/GT-IDR-Bind/
-
-# Install SSH server for RunPod interactive access
-RUN apt-get update && apt-get install -y --no-install-recommends openssh-server && \
-    rm -rf /var/lib/apt/lists/* && \
-    mkdir -p /run/sshd
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
