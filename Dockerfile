@@ -75,9 +75,20 @@ COPY Prot_T5_BFD/ /app/Prot_T5_BFD/
 # Copy IDRBindNet code
 COPY GT-IDR-Bind/ /app/GT-IDR-Bind/
 
-# Set working directory
+# Install SSH server for RunPod interactive access
+RUN apt-get update && apt-get install -y --no-install-recommends openssh-server && \
+    rm -rf /var/lib/apt/lists/* && \
+    mkdir -p /run/sshd
+
+# Entrypoint: start SSH daemon then keep container alive for interactive use
+# SSH in, SCP upload PDB files, run predictions, SCP download results
+RUN echo '#!/bin/bash' > /entrypoint.sh && \
+    echo '/usr/sbin/sshd' >> /entrypoint.sh && \
+    echo 'echo "IDRBindNet ready. SSH in and run:"' >> /entrypoint.sh && \
+    echo 'echo "  python3 /app/GT-IDR-Bind/run_all.py --pdb_dir /work --gpu_id 0"' >> /entrypoint.sh && \
+    echo 'exec sleep infinity' >> /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
 WORKDIR /work
 
-# Entrypoint runs the prediction pipeline
-ENTRYPOINT ["python3", "/app/GT-IDR-Bind/run_all.py"]
-CMD ["--pdb_dir", "/work", "--gpu_id", "0"]
+CMD ["/entrypoint.sh"]
