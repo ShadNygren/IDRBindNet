@@ -48,7 +48,7 @@ RUN pip install --no-cache-dir \
     "transformers>=4.33,<4.40" \
     biopython==1.81 \
     pandas \
-    numpy \
+    numpy==1.26.4 \
     scipy \
     scikit-learn \
     mdtraj \
@@ -91,6 +91,10 @@ COPY Prot_T5_BFD/ /app/Prot_T5_BFD/
 
 # Copy IDRBindNet code
 COPY GT-IDR-Bind/ /app/GT-IDR-Bind/
+
+# Fix upstream bug: get_embedding.py has gpu_id=1 hardcoded (authors used multi-GPU)
+# Change to gpu_id=0 for single-GPU systems (RunPod, most cloud instances)
+RUN sed -i 's/gpu_id=1/gpu_id=0/' /app/GT-IDR-Bind/get_embedding.py
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
